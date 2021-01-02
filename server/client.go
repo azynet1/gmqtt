@@ -29,6 +29,7 @@ import (
 	"github.com/DrmagicE/gmqtt/persistence/unack"
 	"github.com/DrmagicE/gmqtt/pkg/codes"
 	"github.com/DrmagicE/gmqtt/pkg/packets"
+	"github.com/DrmagicE/gmqtt/server/event"
 )
 
 // Error
@@ -894,6 +895,19 @@ func (client *client) subscribeHandler(sub *packets.Subscribe) *codes.Error {
 			)
 		}
 	}
+	srv.cluster.Broadcast(&event.SubscribeEvent{
+		ClientID: client.opts.ClientID,
+		Subscriptions: []*gmqtt.Subscription{
+			{
+				TopicFilter:       "#",
+				ID:                0,
+				QoS:               1,
+				NoLocal:           false,
+				RetainAsPublished: false,
+				RetainHandling:    0,
+			},
+		},
+	})
 	client.write(suback)
 	return nil
 }
@@ -965,6 +979,11 @@ func (client *client) publishHandler(pub *packets.Publish) *codes.Error {
 			srv.mu.Lock()
 			topicMatched = srv.deliverMessageHandler(client.opts.ClientID, msg)
 			srv.mu.Unlock()
+
+			// TODO search for matched nodes and use Multicast instead
+			srv.cluster.Broadcast(&event.PublishEvent{
+				Message: msg,
+			})
 		}
 	}
 

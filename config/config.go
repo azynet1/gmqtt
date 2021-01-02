@@ -104,10 +104,11 @@ func (p pluginConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 // Config is the configration for gmqttd.
 type Config struct {
 	Listeners []*ListenerConfig `yaml:"listeners"`
-	MQTT      MQTT              `yaml:"mqtt,omitempty"`
-	Log       LogConfig         `yaml:"log"`
-	PidFile   string            `yaml:"pid_file"`
-	Plugins   pluginConfig      `yaml:"plugins"`
+	Cluster   Cluster
+	MQTT      MQTT         `yaml:"mqtt,omitempty"`
+	Log       LogConfig    `yaml:"log"`
+	PidFile   string       `yaml:"pid_file"`
+	Plugins   pluginConfig `yaml:"plugins"`
 	// PluginOrder is a slice that contains the name of the plugin which will be loaded.
 	// Giving a correct order to the slice is significant,
 	// because it represents the loading order which affect the behavior of the broker.

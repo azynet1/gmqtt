@@ -1,3 +1,4 @@
+pid_file: "./gmqttd2.pid"
 listeners:
   # bind address
   - address: ":1883"
@@ -5,11 +6,17 @@ listeners:
   #      tls:
   #        cert_file: "path_to_cert_file"
   #        key_file: "path_to_key_file"
-
-  - address: ":8883"
-    # websocket setting
-    websocket:
-      path: "/"
+#  - address: ":8883"
+#    # websocket setting
+#    websocket:
+#      path: "/"
+cluster:
+  node_name: node2
+  internal_addr: :4458
+  gossip_addr: :4459
+  join:
+    - 127.0.0.1:4457
+    - 127.0.0.1:4459
 mqtt:
   session_expiry: 2h
   session_expiry_check_timer: 20s
@@ -73,8 +80,8 @@ plugins:
 plugin_order:
   # Uncomment auth to enable authentication.
   #- auth
-  - prometheus
-  - admin
+#  - prometheus
+#  - admin
 log:
   level: info # debug | info | warn | error
   format: text # json | text

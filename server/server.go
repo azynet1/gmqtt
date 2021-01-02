@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/hashicorp/serf/serf"
 	"go.uber.org/zap"
 
 	"github.com/DrmagicE/gmqtt"
@@ -185,6 +186,7 @@ type server struct {
 	deliverMessageHandler func(srcClientID string, msg *gmqtt.Message) (matched bool)
 
 	clientService *clientService
+	cluster       *Cluster
 }
 
 func (srv *server) Plugins() []Plugin {
@@ -1248,7 +1250,22 @@ func (srv *server) Run() (err error) {
 		ws = append(ws, v.Server.Addr)
 	}
 	zaplog.Info("starting gmqtt server", zap.Strings("tcp server listen on", tcps), zap.Strings("websocket server listen on", ws))
+	c := &Cluster{
+		nodeName:      srv.config.Cluster.NodeName,
+		cfg:           srv.config,
+		members:       make(map[string]*serf.Member),
+		producerQueue: make(map[string]*eventProducer),
+		serfEventCh:   make(chan serf.Event, 10),
+		exit:          make(chan struct{}, 1),
+		srv:           srv,
+	}
+	//srv.wg.Add(1)
+	go func() {
+		//	defer srv.wg.Done()
+		c.Run()
+	}()
 
+	srv.cluster = c
 	srv.status = serverStatusStarted
 	srv.wg.Add(1)
 	go srv.eventLoop()
