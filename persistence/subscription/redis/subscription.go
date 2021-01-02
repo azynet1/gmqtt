@@ -8,7 +8,6 @@ import (
 	redigo "github.com/gomodule/redigo/redis"
 
 	"github.com/DrmagicE/gmqtt"
-	"github.com/DrmagicE/gmqtt/persistence/encoding"
 	"github.com/DrmagicE/gmqtt/persistence/subscription"
 	"github.com/DrmagicE/gmqtt/persistence/subscription/mem"
 )
@@ -18,54 +17,6 @@ const (
 )
 
 var _ subscription.Store = (*sub)(nil)
-
-func EncodeSubscription(sub *gmqtt.Subscription) []byte {
-	w := &bytes.Buffer{}
-	encoding.WriteString(w, []byte(sub.ShareName))
-	encoding.WriteString(w, []byte(sub.TopicFilter))
-	encoding.WriteUint32(w, sub.ID)
-	w.WriteByte(sub.QoS)
-	encoding.WriteBool(w, sub.NoLocal)
-	encoding.WriteBool(w, sub.RetainAsPublished)
-	w.WriteByte(sub.RetainHandling)
-	return w.Bytes()
-}
-
-func DecodeSubscription(b []byte) (*gmqtt.Subscription, error) {
-	sub := &gmqtt.Subscription{}
-	r := bytes.NewBuffer(b)
-	share, err := encoding.ReadString(r)
-	if err != nil {
-		return &gmqtt.Subscription{}, err
-	}
-	sub.ShareName = string(share)
-	topic, err := encoding.ReadString(r)
-	if err != nil {
-		return &gmqtt.Subscription{}, err
-	}
-	sub.TopicFilter = string(topic)
-	sub.ID, err = encoding.ReadUint32(r)
-	if err != nil {
-		return &gmqtt.Subscription{}, err
-	}
-	sub.QoS, err = r.ReadByte()
-	if err != nil {
-		return &gmqtt.Subscription{}, err
-	}
-	sub.NoLocal, err = encoding.ReadBool(r)
-	if err != nil {
-		return &gmqtt.Subscription{}, err
-	}
-	sub.RetainAsPublished, err = encoding.ReadBool(r)
-	if err != nil {
-		return &gmqtt.Subscription{}, err
-	}
-	sub.RetainHandling, err = r.ReadByte()
-	if err != nil {
-		return nil, err
-	}
-	return sub, nil
-}
 
 func New(pool *redigo.Pool) *sub {
 	return &sub{
@@ -96,7 +47,8 @@ func (s *sub) Init(clientIDs []string) error {
 			return err
 		}
 		for i := 1; i < len(rs); i = i + 2 {
-			sub, err := DecodeSubscription(rs[i].([]byte))
+			sub := &gmqtt.Subscription{}
+			err := sub.Decode(bytes.NewBuffer(rs[i].([]byte)))
 			if err != nil {
 				return err
 			}
@@ -118,7 +70,12 @@ func (s *sub) Subscribe(clientID string, subscriptions ...*gmqtt.Subscription) (
 	defer c.Close()
 	// hset sub:clientID topicFilter xxx
 	for _, v := range subscriptions {
-		err = c.Send("hset", subPrefix+clientID, subscription.GetFullTopicName(v.ShareName, v.TopicFilter), EncodeSubscription(v))
+		buf := &bytes.Buffer{}
+		err := v.Encode(buf)
+		if err != nil {
+			return nil, err
+		}
+		err = c.Send("hset", subPrefix+clientID, subscription.GetFullTopicName(v.ShareName, v.TopicFilter), buf.Bytes())
 		if err != nil {
 			return nil, err
 		}

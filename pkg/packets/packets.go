@@ -325,14 +325,15 @@ func readUint16(r *bytes.Buffer) (uint16, error) {
 }
 
 func writeUint16(w *bytes.Buffer, i uint16) {
-	w.WriteByte(byte(i >> 8))
-	w.WriteByte(byte(i))
+	b := make([]byte, 2)
+	binary.BigEndian.PutUint16(b, i)
+	w.Write(b)
 }
+
 func writeUint32(w *bytes.Buffer, i uint32) {
-	w.WriteByte(byte(i >> 24))
-	w.WriteByte(byte(i >> 16))
-	w.WriteByte(byte(i >> 8))
-	w.WriteByte(byte(i))
+	b := make([]byte, 4)
+	binary.BigEndian.PutUint32(b, i)
+	w.Write(b)
 }
 
 func readUint32(r *bytes.Buffer) (uint32, error) {
@@ -368,6 +369,7 @@ func writeUTF8String(w *bytes.Buffer, s []byte) {
 	writeUint16(w, uint16(len(s)))
 	w.Write(s)
 }
+
 func writeBinary(w *bytes.Buffer, b []byte) {
 	writeUint16(w, uint16(len(b)))
 	w.Write(b)

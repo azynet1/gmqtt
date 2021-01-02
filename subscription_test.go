@@ -1,16 +1,15 @@
-package redis
+package gmqtt
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"github.com/DrmagicE/gmqtt"
 )
 
 func TestEncodeDecodeSubscription(t *testing.T) {
 	a := assert.New(t)
-	tt := []*gmqtt.Subscription{
+	tt := []*Subscription{
 		{
 			ShareName:         "shareName",
 			TopicFilter:       "filter",
@@ -31,9 +30,13 @@ func TestEncodeDecodeSubscription(t *testing.T) {
 	}
 
 	for _, v := range tt {
-		b := EncodeSubscription(v)
-		sub, err := DecodeSubscription(b)
-		a.Nil(err)
+		buf := &bytes.Buffer{}
+		err := v.Encode(buf)
+		a.NoError(err)
+
+		sub := &Subscription{}
+		err = sub.Decode(bytes.NewBuffer(buf.Bytes()))
+		a.NoError(err)
 		a.Equal(v, sub)
 	}
 }
