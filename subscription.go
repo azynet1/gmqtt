@@ -1,8 +1,11 @@
 package gmqtt
 
 import (
+	"bytes"
 	"errors"
+	"io"
 
+	"github.com/DrmagicE/gmqtt/pkg/codec"
 	"github.com/DrmagicE/gmqtt/pkg/packets"
 )
 
@@ -61,5 +64,59 @@ func (s *Subscription) Validate() error {
 	if s.RetainHandling != 0 && s.RetainHandling != 1 && s.RetainHandling != 2 {
 		return errors.New("invalid retain handling")
 	}
+	return nil
+}
+
+// Encode encodes Subscription into bytes and writes it to w.
+func (s *Subscription) Encode(w io.Writer) (err error) {
+	var buf bytes.Buffer
+	codec.WriteBinary(&buf, []byte(s.ShareName))
+	codec.WriteBinary(&buf, []byte(s.TopicFilter))
+	codec.WriteUint32(&buf, s.ID)
+	buf.Write([]byte{s.QoS})
+	codec.WriteBool(&buf, s.NoLocal)
+	codec.WriteBool(&buf, s.RetainAsPublished)
+	buf.Write([]byte{s.RetainHandling})
+	_, err = buf.WriteTo(w)
+	return
+}
+
+// Decode reads data from r and decodes it into Subscription.
+func (s *Subscription) Decode(r io.Reader) (err error) {
+	share, err := codec.ReadBinary(r)
+	if err != nil {
+		return err
+	}
+	s.ShareName = string(share)
+	topic, err := codec.ReadBinary(r)
+	if err != nil {
+		return err
+	}
+	s.TopicFilter = string(topic)
+
+	s.ID, err = codec.ReadUint32(r)
+	if err != nil {
+		return err
+	}
+	qos := make([]byte, 1)
+	_, err = r.Read(qos)
+	if err != nil {
+		return err
+	}
+	s.QoS = qos[0]
+	s.NoLocal, err = codec.ReadBool(r)
+	if err != nil {
+		return err
+	}
+	s.RetainAsPublished, err = codec.ReadBool(r)
+	if err != nil {
+		return err
+	}
+	rhl := make([]byte, 1)
+	_, err = r.Read(rhl)
+	if err != nil {
+		return err
+	}
+	s.RetainHandling = rhl[0]
 	return nil
 }
