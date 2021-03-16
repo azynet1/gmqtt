@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -21,6 +22,7 @@ import (
 var (
 	ConfigFile string
 	logger     *zap.Logger
+	wg         sync.WaitGroup
 )
 
 func must(err error) {
@@ -38,7 +40,7 @@ func installSignal(srv server.Server) {
 	// stop
 	stopSignalCh := make(chan os.Signal, 1)
 	signal.Notify(stopSignalCh, os.Interrupt, syscall.SIGTERM)
-
+	wg.Add(1)
 	for {
 		select {
 		case <-reloadSignalCh:
@@ -56,9 +58,10 @@ func installSignal(srv server.Server) {
 			if err != nil {
 				fmt.Fprint(os.Stderr, err.Error())
 			}
+			wg.Done()
+			return
 		}
 	}
-
 }
 
 func GetListeners(c config.Config) (tcpListeners []net.Listener, websockets []*server.WsServer, err error) {
@@ -135,7 +138,9 @@ func NewStartCmd() *cobra.Command {
 				return
 			}
 			go installSignal(s)
+
 			err = s.Run()
+			wg.Wait()
 			if err != nil {
 				fmt.Fprint(os.Stderr, err.Error())
 				os.Exit(1)
